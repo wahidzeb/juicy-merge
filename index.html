@@ -9,10 +9,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#ff8a5c">
 <title>Juicy Merge by Zaib: Fruit Merge Physics Puzzle</title>
+<meta name="apple-mobile-web-app-title" content="Juicy Merge">
 <link rel="manifest" href="/juicy-merge/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/juicy-merge/icons/apple-touch-icon.png">
 <script id="zg-sw">if("serviceWorker"in navigator)addEventListener("load",function(){navigator.serviceWorker.register("/juicy-merge/sw.js",{scope:"/juicy-merge/"}).catch(function(){})});</script>
-<meta name="apple-mobile-web-app-title" content="Juicy Merge">
 <meta name="description" content="Juicy Merge by Zaib: drop fruits into the jar and merge two of the same fruit into a bigger one, all the way up to the Watermelon. Juicy physics, combo chains, Classic, Timed and Daily modes, power-ups, jars and skins. Free in your browser.">
 <link rel="canonical" href="https://zaibgames.com/juicy-merge/">
 <meta property="og:type" content="website">
@@ -185,6 +185,7 @@ body.land .modal .card h2{font-size:25px}
 body.land #mPause .row{gap:8px!important}
 body.land .mode{padding:8px;margin:5px 0}
 @media (max-height:520px){.card{padding-top:14px}.evo canvas{width:30px;height:30px}}
+@media (max-height:520px){body.land #sTitle .foot{position:fixed;left:0;right:0;top:calc(var(--sat) + 16px);font-size:11px;gap:4px 8px;pointer-events:none}body.land #sTitle .foot>*{pointer-events:auto}body.land #sTitle .foot a{padding:1px 8px 2px}}
 </style>
 </head>
 <body>
@@ -318,6 +319,15 @@ body.land .mode{padding:8px;margin:5px 0}
   </div>
 </div></div>
 <script>
+/* Canvas radius guard: clamps negative/NaN radii so a tiny or 0-size viewport can never throw IndexSizeError. */
+(function () { try { var P = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype; if (!P || P.__zgRG) return; P.__zgRG = 1;
+  function c(v) { v = +v; return v > 0 ? v : 0; }
+  var a = P.arc, e = P.ellipse, t = P.arcTo, g = P.createRadialGradient;
+  if (a) P.arc = function (x, y, r, s, en, cc) { return a.call(this, x, y, c(r), s, en, cc); };
+  if (e) P.ellipse = function (x, y, rx, ry, ro, s, en, cc) { return e.call(this, x, y, c(rx), c(ry), ro, s, en, cc); };
+  if (t) P.arcTo = function (x1, y1, x2, y2, r) { return t.call(this, x1, y1, x2, y2, c(r)); };
+  if (g) P.createRadialGradient = function (x0, y0, r0, x1, y1, r1) { return g.call(this, +x0 || 0, +y0 || 0, c(r0), +x1 || 0, +y1 || 0, c(r1)); };
+} catch (e) {} })();
 /* GA4 custom events (Games by Zaib). Safe: never throws, light (no per-frame calls, dedupe + per-page cap). */
 var ZT_N = 0, ZT_K = '', ZT_KT = 0, ZT_T = 0, ZT_S = 0, ZT_H = 0;
 function zt(n, p) { try { var k = n + JSON.stringify(p || 0), t = Date.now(); if (ZT_N >= 150 || (k === ZT_K && t - ZT_KT < 500)) return; ZT_N++; ZT_K = k; ZT_KT = t; window.gtag && gtag('event', n, Object.assign({ game_id: 'juicy-merge' }, p)); } catch (e) {} }
@@ -888,17 +898,24 @@ var BB = { x: -WALL - 30, y: -40, w: JAR_W + 2 * WALL + 60, h: JAR_H + FLOOR + 9
 var sa = document.createElement('div'); sa.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)'; document.body.appendChild(sa);
 function insets() { var c = getComputedStyle(sa); return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 }; }
 function resize() {
-  VW = window.innerWidth; VH = window.innerHeight; LAND = VW > VH * 1.15; document.body.classList.toggle('land', LAND);
+  VW = Math.max(0, window.innerWidth || document.documentElement.clientWidth || 0); VH = Math.max(0, window.innerHeight || document.documentElement.clientHeight || 0); LAND = VW > VH * 1.15; document.body.classList.toggle('land', LAND);
   DPR = Math.min(window.devicePixelRatio || 1, [1, 1.5, 2][Q]); cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   var I = insets(), l, r, t, b;
   if (LAND) { l = I.l + 172; r = I.r + 104; t = I.t + 6; b = I.b + 6; } else { l = I.l + 6; r = I.r + 6; t = I.t + 64 + (G && G.goal ? 22 : 0); b = I.b + 82; }
   if (state !== 'play' && state !== 'over') { l = I.l + 6; r = I.r + 6; t = I.t + 6; b = I.b + 6; }
   var aw = VW - l - r, ah = VH - t - b, WW = JAR_W + 2 * WALL + 16, WH = 150 + JAR_H + FLOOR + 40;
-  var s = Math.min(aw / WW, ah / WH); L.s = s; L.ox = l + (aw - JAR_W * s) / 2; L.oy = t + (ah - WH * s) / 2 + 150 * s;
+  aw = Math.max(0, aw); ah = Math.max(0, ah);
+  var s = Math.min(aw / WW, ah / WH);
+  if (!(s > 0.02) || !isFinite(s)) {
+    if (VW < 40 || VH < 40) { rebuild(); return; } /* tiny/0 viewport: keep previous layout */
+    s = Math.max(0.02, Math.min(VW / WW, VH / WH)); L.s = s; L.ox = (VW - JAR_W * s) / 2; L.oy = (VH - WH * s) / 2 + 150 * s;
+  } else { L.s = s; L.ox = l + (aw - JAR_W * s) / 2; L.oy = t + (ah - WH * s) / 2 + 150 * s; }
   rebuild();
 }
 function rebuild() {
-  bgC.width = cv.width; bgC.height = cv.height; var x = bgC.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0); drawBg(x, S.jar, VW, VH, L);
+  try { var nb = document.createElement('canvas'); nb.width = cv.width; nb.height = cv.height; var x = nb.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0); drawBg(x, S.jar, VW, VH, L); bgC = nb; }
+  catch (e) { try { zt('js_error', { msg: String(e && e.message || e).slice(0, 90), where: 'bg_rebuild' }); } catch (z) {} }
+  if (!(L.s > 0)) return;
   var k = L.s * DPR; [backC, frontC].forEach(function (c, i) { c.width = Math.ceil(BB.w * k); c.height = Math.ceil(BB.h * k); var y = c.getContext('2d'); y.setTransform(k, 0, 0, k, -BB.x * k, -BB.y * k); if (i) drawJarFront(y, S.jar); else drawJarBack(y, S.jar); });
   bakeSprites(S.skin, L.s * DPR); NEXTK = -1;
 }
